@@ -1,4 +1,5 @@
 "use client"
+
 import * as React from "react"
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react"
 
@@ -9,23 +10,57 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
+import { signIn } from "next-auth/react" // FIX: Import from client-compatible path
+import { useForm } from "react-hook-form"
+import { LoginFormValues, loginSchema } from "@/schemas/auth.schema"
+import { zodResolver } from "@hookform/resolvers/zod"
 
 export default function AuthScreen() {
   const [showPassword, setShowPassword] = React.useState(false)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+  })
+
+  const onSubmit = async (data: LoginFormValues) => {
+    try {
+      setIsSubmitting(true)
+      // For Credentials
+      await signIn("credentials", {
+        email: data.email, // FIX: Target passed object parameter data
+        password: data.password,
+        redirectTo: "/dashboard",
+      })
+    } catch (error) {
+      console.error("Credentials login failed:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signIn("google", { redirectTo: "/dashboard" })
+    } catch (error) {
+      console.error("Google OAuth login failed:", error)
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#090d16] p-4 font-sans antialiased text-slate-200">
-      {/* Main Container mirroring screen.jpg */}
       <Card className="w-full max-w-[1000px] overflow-hidden border-slate-800 bg-[#0b0f19] shadow-2xl">
         <CardContent className="grid p-0 md:grid-cols-2">
           
           {/* Left Side: Branding & Marketing */}
           <div className="relative flex flex-col justify-between bg-gradient-to-br from-[#1e1b4b] via-[#111827] to-[#0f172a] p-8 md:p-12 lg:p-16">
-            {/* Subtle glow effect overlay */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.15),transparent_50%)]" />
             
             <div className="relative z-10 space-y-12">
-              {/* Logo */}
               <div className="flex items-center gap-2 text-indigo-400">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500/20">
                   <ShieldCheck className="h-4 w-4 text-indigo-400" />
@@ -33,7 +68,6 @@ export default function AuthScreen() {
                 <span className="font-semibold tracking-wide text-white">InventoryPro</span>
               </div>
 
-              {/* Tagline */}
               <div className="space-y-4">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                   Master your supply <br />
@@ -46,7 +80,6 @@ export default function AuthScreen() {
               </div>
             </div>
 
-            {/* Footer Badge */}
             <div className="relative z-10 mt-12 flex items-center gap-3">
               <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-medium tracking-wider text-slate-300 uppercase">
                 Pro Mix
@@ -61,7 +94,6 @@ export default function AuthScreen() {
           <div className="bg-[#0c101b] p-8 md:p-12 lg:p-16 flex flex-col justify-center">
             <div className="mx-auto w-full max-w-[360px] space-y-6">
               
-              {/* Header */}
               <div className="space-y-1">
                 <h2 className="text-2xl font-semibold tracking-tight text-white">Welcome Back</h2>
                 <p className="text-xs text-slate-400">
@@ -70,7 +102,7 @@ export default function AuthScreen() {
               </div>
 
               {/* Form */}
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 {/* Email Field */}
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-xs font-medium text-slate-400">
@@ -82,9 +114,13 @@ export default function AuthScreen() {
                       id="email"
                       type="email"
                       placeholder="name@company.com"
+                      {...register("email")} // FIX: Added form register hook
                       className="border-slate-800 bg-[#111726] pl-9 text-slate-200 placeholder:text-slate-600 focus-visible:ring-indigo-500"
                     />
                   </div>
+                  {errors.email && (
+                    <p className="text-[11px] text-red-400">{errors.email.message}</p>
+                  )}
                 </div>
 
                 {/* Password Field */}
@@ -103,6 +139,7 @@ export default function AuthScreen() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
+                      {...register("password")} // FIX: Added form register hook
                       className="border-slate-800 bg-[#111726] pl-9 pr-9 text-slate-200 placeholder:text-slate-600 focus-visible:ring-indigo-500"
                     />
                     <button
@@ -113,6 +150,9 @@ export default function AuthScreen() {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {errors.password && (
+                    <p className="text-[11px] text-red-400">{errors.password.message}</p>
+                  )}
                 </div>
 
                 {/* Checkbox */}
@@ -127,8 +167,12 @@ export default function AuthScreen() {
                 </div>
 
                 {/* Submit Button */}
-                <Button type="submit" className="w-full bg-[#a3a3ff] font-medium text-slate-900 hover:bg-[#b3b3ff]">
-                  Sign in
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting} 
+                  className="w-full bg-[#a3a3ff] font-medium text-slate-900 hover:bg-[#b3b3ff] disabled:opacity-50"
+                >
+                  {isSubmitting ? "Signing in..." : "Sign in"}
                 </Button>
               </form>
 
@@ -145,7 +189,12 @@ export default function AuthScreen() {
                 <Button variant="outline" className="border-slate-800 bg-[#111726] text-xs text-slate-300 hover:bg-slate-800 hover:text-white">
                   <span className="font-semibold mr-1">SSO</span> Identity
                 </Button>
-                <Button variant="outline" className="border-slate-800 bg-[#111726] text-xs text-slate-300 hover:bg-slate-800 hover:text-white">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={handleGoogleLogin} // FIX: Attached trigger event
+                  className="border-slate-800 bg-[#111726] text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+                >
                   <svg className="mr-2 h-3.5 w-3.5" viewBox="0 0 24 24">
                     <path
                       fill="currentColor"

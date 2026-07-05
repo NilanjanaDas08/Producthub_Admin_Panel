@@ -5,6 +5,10 @@ import { use } from 'react';
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+import {
+  createAccessToken,
+  createRefreshToken,
+} from "@/lib/auth/jwt";
 
 export async function POST(req:Request){
     try{
@@ -39,11 +43,16 @@ export async function POST(req:Request){
       aud: 'authenticated',
       role: 'authenticated',
     }
-    const accessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET!, { expiresIn: '15m' });
+   const accessToken = await createAccessToken({
+  sub: user.id,
+  email: user.email,
+  role_id: user.role_id,
+  role_name: roleName,
+});
  
-    const refreshToken = jwt.sign({ sub: user.id }, process.env.JWT_REFRESH_SECRET!, {
-      expiresIn: '30d',
-    });
+   const refreshToken = await createRefreshToken(
+  user.id
+);
    const refreshTokenHash = crypto
   .createHash('sha256')
   .update(refreshToken)
